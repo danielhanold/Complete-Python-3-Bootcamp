@@ -2,10 +2,11 @@
 def func():
   print("FUNC() IN ONE.PY")
 
- def func2():
+def func2():
    print('func 2 in one.py')
 
 print("TOP LEVEL IN ONE.PY")
+print("__name__ variable is: {}".format(__name__))
 
 if __name__ == '__main__':
   # Run the script.
