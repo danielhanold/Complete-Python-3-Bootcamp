@@ -2,6 +2,7 @@
 Blackjack Game
 """
 from deck import Deck
+from hand import Hand
 from wallet import Wallet
 from random import randint
 from time import sleep
@@ -18,19 +19,11 @@ class Blackjack():
         """
         Reset all game variables for a new round.
         """
-        # The player always goes first.
-        self.current_turn = 'player'
 
         # Set the current cards to an empty array.
-        self.cards = {
-            'dealer': [],
-            'player': []
-        }
-
-        # Set the totals for each player.
-        self.totals = {
-            'dealer': 0,
-            'player': 0
+        self.hands = {
+            'dealer': Hand(),
+            'player': Hand()
         }
 
         # Create a new new deck of cards.
@@ -67,7 +60,7 @@ class Blackjack():
         for current in ('dealer', 'player'):
             for i in range(0, 2):
                 card = self.deck.draw_card()
-                self.cards[current].append(card)
+                self.hands[current].add(card)
 
     @staticmethod
     def format_card(card):
@@ -77,7 +70,7 @@ class Blackjack():
         card_suit = card[0].capitalize()
         return "{} of {}".format(card_value, card_suit)
 
-    def display_cards(self):
+    def display_cards(self, show_all=False):
         """
         Display all cards for the player and dealer.
         """
@@ -85,10 +78,10 @@ class Blackjack():
 
         for player in ['dealer', 'player']:
             # Format the cards correctly.
-            cards = [self.format_card(card) for card in self.cards[player]]
+            cards = [self.format_card(card) for card in self.hands[player].cards]
 
             # If it's the player's turn, do not display the second card of the dealer.
-            if self.current_turn == 'player' and player == 'dealer':
+            if not show_all and player in 'dealer':
                 cards[1] = '--hidden--'
 
             # Print the message.
@@ -110,67 +103,15 @@ class Blackjack():
 
         return action
 
-    def tally_up_cards(self):
-        """
-        Tally up all the cards for each player.
-        """
-        for player in ['dealer', 'player']:
-            self.totals[player] = self.check_cards(player)
-
-
-    def check_cards(self, player):
-        """
-        Check the cards for the specified player.
-        """
-        total = 0
-        for card in self.cards[player]:
-            # Number cards can simply be added.
-            if isinstance(card[1], int):
-                total = total + card[1]
-
-            # People cards have a value of 10.
-            if card[1] in ['jack', 'queen', 'king']:
-                total = total + 10
-
-        # Handle aces separately.
-        # Find the best combination for aces.
-        # 1 ace:  1 or 11
-        # 2 aces: 1,1, or 11,1 (all other combos go over)
-        # 3 aces: 1,1,1 or 11,1,1 (all other combos go over)
-        # 4 aces: 1,1,1,1 or 11,1,1,1 (all other combos go over)
-        aces = list(filter(lambda card: card[1] == 'ace', self.cards['player']))
-        if len(aces) == 1:
-            if (total + 11) > 21:
-                total = total + 1
-            else:
-                total = total + 11
-        elif len(aces) == 2:
-            if (total + 12) > 21:
-                total = total + 2
-            else:
-                total = total + 12
-        elif len(aces) == 3:
-            if (total + 13) > 21:
-                total = total + 3
-            else:
-                total = total + 13
-        elif len(aces) == 4:
-            if (total + 14) > 21:
-                total = total + 4
-            else:
-                total = total + 14
-
-        return total
-
     def display_totals(self):
         """
         Display the totals for this round.
         """
         print()
         print("---- Results for this round ----")
-        self.display_cards()
-        print("Dealer total is: {}".format(self.totals['dealer']))
-        print("Player total is: {}".format(self.totals['player']))
+        self.display_cards(show_all=True)
+        print("Dealer total is: {}".format(self.hands['dealer'].total))
+        print("Player total is: {}".format(self.hands['player'].total))
 
     def player_result(self, outcome):
         """
@@ -182,10 +123,18 @@ class Blackjack():
             message = 'You won this round and doubled your bet of {}.'
         elif outcome == 'lose':
             self.wallet.subtract_amount(self.bet)
-            message = 'You lost this round your bet of {}.'
+            message = 'You lost this round and your bet of {}.'
 
         print(message.format(self.bet))
         print('Coins in your wallet are now: {}'.format(self.wallet.get_balance()))
+
+    def check_blackjack(self, person):
+        """
+        Check if a person has blackjack.
+        """
+        if self.hands[person].total == 21:
+            # If the player has more 21, he instantly won.
+            print("{} has BLACKJACK!!!!".format(person.capitalize()))
 
     def play_game(self):
         # Play until game is not continued.
@@ -213,7 +162,7 @@ class Blackjack():
                 else:
                     print('Thank you for playing.')
                     if self.wallet.balance > self.wallet.initial_balance:
-                        print('You made some money. Congrats')
+                        print('You made some coins. Congrats.')
                     else:
                         print('You lost money, but at least you are not broke.')
                     continue_game = False
@@ -235,9 +184,6 @@ class Blackjack():
         # Print out first cards that were dealt.
         self.display_cards()
 
-        # Tall up initial cards.
-        self.tally_up_cards()
-
         # Indicate if round is complete.
         round_complete = False
 
@@ -245,9 +191,7 @@ class Blackjack():
         player_won = False
 
         # Edge case: Player starts with a blackjack.
-        if self.totals['player'] == 21:
-            # If the player has more 21, he instantly won.
-            print("BLACKJACK!!!!")
+        if self.check_blackjack('player'):
             player_won = True
             self.player_result('win')
             return True
@@ -258,17 +202,14 @@ class Blackjack():
             if player_action == 'h':
                 # Draw a new card.
                 card = self.deck.draw_card()
-                self.cards[self.current_turn].append(card)
+                self.hands['player'].add(card)
                 self.display_cards()
-                self.tally_up_cards()
 
-                if self.totals['player'] == 21:
-                    # If the player has more 21, he instantly won.
-                    print("BLACKJACK!!!!")
+                if self.check_blackjack('player'):
                     player_won= True
                     self.player_result('win')
                     break
-                elif self.totals['player'] > 21:
+                elif self.hands['player'].total > 21:
                     # If the player has more than 21, he instantly lost.
                     self.player_result('lose')
                     round_complete = True
@@ -279,18 +220,16 @@ class Blackjack():
 
         # Dealer gets to play if player did not win already.
         if not player_won and not round_complete:
-            self.current_turn = 'dealer'
-            self.display_cards()
+            self.display_cards(show_all=True)
             while True:
                 # If the dealer has more than the player and less than 21, dealer wins.
-                if self.totals['dealer'] < 21 and self.totals['dealer'] > self.totals['player']:
+                if self.hands['dealer'].total < 21 and self.hands['dealer'].total > self.hands['player'].total:
                     self.player_result('lose')
                     break
-                elif self.totals['dealer'] == 21:
-                    print('Dealer has Blackjack')
+                elif self.check_blackjack('dealer'):
                     self.player_result('lose')
-                    break;
-                elif self.totals['dealer'] > 21:
+                    break
+                elif self.hands['dealer'].total > 21:
                     self.player_result('win')
                     break
                 else:
@@ -301,9 +240,8 @@ class Blackjack():
 
                 # Let the dealer pick a card.
                 card = self.deck.draw_card()
-                self.cards[self.current_turn].append(card)
-                self.display_cards()
-                self.tally_up_cards()
+                self.hands['dealer'].add(card)
+                self.display_cards(show_all=True)
 
 # Play the game.
 if __name__ == '__main__':
