@@ -31,7 +31,14 @@ class CCValidator():
         self.number = self.get_card_number()
 
         # Validate the number.
-        self.validate_card_number()
+        self.luhn = LuhnAlgorithm(self.number)
+
+        if self.luhn.is_valid:
+            self.card_type = card_types.get_type(self.number)
+            print('Your card number is valid.')
+            print('Your card type was identified as: {}'.format(self.card_type['niceType']))
+        else:
+            print('Your card type was identified as: {}'.format(self.card_type['niceType']))
 
     def get_card_number(self):
         while True:
@@ -54,14 +61,6 @@ class CCValidator():
                     continue
                 else:
                     return num
-
-    def validate_card_number(self):
-        luhn_tester = LuhnAlgorithm(self.number)
-        if luhn_tester.is_valid:
-            print('Your card number is valid.')
-        else:
-            print('This is an invalid credit card number.')
-
 
 # Require this script to be executed as the main script.
 if __name__ == '__main__':

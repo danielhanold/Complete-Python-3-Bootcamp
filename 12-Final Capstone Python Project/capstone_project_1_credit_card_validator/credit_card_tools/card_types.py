@@ -1,6 +1,13 @@
 """
 Defines credit card types, patterns, names etc.
+Based on https://github.com/braintree/credit-card-type/blob/master/README.md.
+
+Each card type has a patterns attribute that is an array of numbers and
+ranges of numbers (represented by an array of 2 values, a min and a max).
 """
+
+from functools import reduce
+
 card_types = {
     "visa": {
         "niceType": 'Visa',
@@ -231,10 +238,11 @@ card_types = {
     }
 }
 
-# Determine the shortest and longest possible number of integers
-# for any supported credit card number.
 def get_length_boundaries(end='upper'):
-    "Determines the lower/upper boundary for credit card numbers."
+    """
+    Determine the shortest and longest possible number of integers
+    for any supported credit card number.
+    """
     card_lengths_aggregate = [card['lengths'] for card in card_types.values()]
 
     # Create a singular list of lengths.
@@ -248,6 +256,35 @@ def get_length_boundaries(end='upper'):
         return min(card_lengths)
     else:
         return max(card_lengths)
+
+def get_type(number):
+    """
+    Determine the card type based on a credit card number.
+
+    Follows logic from https://github.com/braintree/credit-card-type/blob/master/README.md#pattern-detection
+    """
+    # Cast credit card number as a string.
+    num_string = str(number)
+
+    # Find all cards that match by pattern.
+    matching_types = []
+    for card_type, card_details in card_types.items():
+        for pattern in card_details['patterns']:
+            # Account for individual numbers and number ranges.
+            try:
+                num_range = range(pattern[0], pattern[1] + 1)
+            except:
+                num_range = range(pattern, pattern + 1)
+
+            for num in num_range:
+                if num_string.startswith(str(num)):
+                    matching_types.append((card_type, num))
+
+    # Determine best match out of all matches.
+    best_match = reduce(lambda x, y: x if (x[1] > y[1]) else y, matching_types)
+
+    # Return the matching type.
+    return card_types[best_match[0]]
 
 # Always determine lower and upper boundary.
 min_number = get_length_boundaries('lower')
